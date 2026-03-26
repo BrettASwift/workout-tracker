@@ -1,0 +1,23 @@
+{
+  "name": "Iron Log",
+  "short_name": "Iron Log",
+  "description": "Workout tracker with muscle group coverage",
+  "start_url": "./workout-tracker.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#060d18",
+  "theme_color": "#060d18",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%23060d18'/><rect x='21' y='75' width='150' height='42' rx='21' fill='%233b82f6'/><rect x='0' y='82' width='35' height='28' rx='14' fill='%2360a5fa'/><rect x='157' y='82' width='35' height='28' rx='14' fill='%2360a5fa'/><rect x='77' y='46' width='38' height='100' rx='14' fill='%231d4ed8'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23060d18'/><rect x='56' y='200' width='400' height='112' rx='56' fill='%233b82f6'/><rect x='0' y='218' width='93' height='76' rx='38' fill='%2360a5fa'/><rect x='419' y='218' width='93' height='76' rx='38' fill='%2360a5fa'/><rect x='205' y='122' width='102' height='268' rx='38' fill='%231d4ed8'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

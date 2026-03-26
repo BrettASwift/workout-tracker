@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#060d18" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Iron Log" />
+  <title>Iron Log</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { height: 100%; background: #060d18; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ─── Data ─────────────────────────────────────────────────────────────────────
+
+    const MUSCLE_GROUPS = [
+      "Lats","Upper Back & Traps","Lower Back",
+      "Upper Chest","Mid/Lower Chest",
+      "Front Delts","Side Delts","Rear Delts",
+      "Biceps","Triceps",
+      "Abs","Obliques",
+      "Quads","Hamstrings","Glutes","Calves",
+    ];
+
+    const muscleColor = {
+      "Lats":"#4ade80","Upper Back & Traps":"#22c55e","Lower Back":"#16a34a",
+      "Upper Chest":"#f87171","Mid/Lower Chest":"#ef4444",
+      "Front Delts":"#93c5fd","Side Delts":"#60a5fa","Rear Delts":"#3b82f6",
+      "Biceps":"#a78bfa","Triceps":"#c084fc",
+      "Abs":"#34d399","Obliques":"#10b981",
+      "Quads":"#fb923c","Hamstrings":"#fbbf24","Glutes":"#f472b6","Calves":"#94a3b8",
+    };
+
+    const COVERAGE_SECTIONS = [
+      { label:"Back",      muscles:["Lats","Upper Back & Traps","Lower Back"] },
+      { label:"Chest",     muscles:["Upper Chest","Mid/Lower Chest"] },
+      { label:"Shoulders", muscles:["Front Delts","Side Delts","Rear Delts"] },
+      { label:"Arms",      muscles:["Biceps","Triceps"] },
+      { label:"Core",      muscles:["Abs","Obliques"] },
+      { label:"Legs",      muscles:["Quads","Hamstrings","Glutes","Calves"] },
+    ];
+
+    const EXERCISES = [
+      { id:1,  name:"Rowing Machine",              equipment:"Rowing Machine",        muscles:[], cardioOnly:true,  note:"Cardio warmup — does not count toward muscle group coverage" },
+      { id:2,  name:"Lat Pulldown",                equipment:"Lat Pulldown Machine",  muscles:["Lats","Biceps"],                                         note:"Wide grip targets outer lats; close grip hits more lower lats" },
+      { id:3,  name:"Cable Row (Seated)",           equipment:"Lat Pulldown Machine",  muscles:["Upper Back & Traps","Lats","Biceps"],                    note:"Close grip focuses mid-back; wide grip hits rear delts more" },
+      { id:4,  name:"Cable Face Pull",              equipment:"Lat Pulldown Machine",  muscles:["Rear Delts","Upper Back & Traps"],                       note:"Great for rear delts and external rotation health" },
+      { id:5,  name:"Cable Curl",                   equipment:"Lat Pulldown Machine",  muscles:["Biceps"],                                                note:"Constant tension throughout the range of motion" },
+      { id:6,  name:"Cable Tricep Pushdown",        equipment:"Lat Pulldown Machine",  muscles:["Triceps"],                                               note:"Use rope or bar; keep elbows pinned to sides" },
+      { id:7,  name:"Cable Overhead Tricep Ext.",   equipment:"Lat Pulldown Machine",  muscles:["Triceps"],                                               note:"Long-head emphasis; great stretch at full extension" },
+      { id:8,  name:"Cable Straight-Arm Pulldown",  equipment:"Lat Pulldown Machine",  muscles:["Lats"],                                                  note:"Isolates the lats without bicep involvement" },
+      { id:9,  name:"Leg Extension",               equipment:"Leg Machine",            muscles:["Quads"],                                                 note:"Isolates the quads; excellent for hypertrophy" },
+      { id:10, name:"Leg Curl (Seated/Lying)",      equipment:"Leg Machine",            muscles:["Hamstrings"],                                            note:"Isolates hamstrings; seated version gives longer range of motion" },
+      { id:11, name:"Back Squat",                   equipment:"Squat Rack",             muscles:["Quads","Glutes","Hamstrings","Abs"],                     note:"High bar emphasises quads, low bar glutes/hams" },
+      { id:12, name:"Front Squat",                  equipment:"Squat Rack",             muscles:["Quads","Abs"],                                           note:"More upright torso; very quad-dominant" },
+      { id:13, name:"Overhead Press (Barbell)",     equipment:"Squat Rack",             muscles:["Front Delts","Side Delts","Triceps","Abs"],              note:"Press from rack; brace hard through the core" },
+      { id:14, name:"Rack Pull",                    equipment:"Squat Rack",             muscles:["Upper Back & Traps","Lower Back","Glutes","Hamstrings"], note:"Deadlift from pins; great for upper back and traps" },
+      { id:15, name:"Pin Squat",                    equipment:"Squat Rack",             muscles:["Quads","Glutes"],                                        note:"Dead stop from the bottom; eliminates stretch reflex" },
+      { id:16, name:"Deadlift",                     equipment:"Barbell",                muscles:["Lower Back","Upper Back & Traps","Glutes","Hamstrings","Abs"], note:"Conventional or sumo; the definitive full-posterior exercise" },
+      { id:17, name:"Romanian Deadlift",            equipment:"Barbell",                muscles:["Hamstrings","Glutes","Lower Back"],                      note:"Hip hinge with soft knees; huge hamstring stretch under load" },
+      { id:18, name:"Barbell Row (Bent Over)",      equipment:"Barbell",                muscles:["Upper Back & Traps","Lats","Biceps"],                    note:"Overhand for upper back; underhand (Yates) hits lower lats" },
+      { id:19, name:"Barbell Curl",                 equipment:"Barbell",                muscles:["Biceps"],                                                note:"Classic mass builder; EZ-bar variant is easier on wrists" },
+      { id:20, name:"Close-Grip Bench Press",       equipment:"Barbell",                muscles:["Triceps","Mid/Lower Chest","Front Delts"],               note:"Narrow grip shifts load to triceps significantly" },
+      { id:21, name:"Good Morning",                 equipment:"Barbell",                muscles:["Hamstrings","Glutes","Lower Back"],                      note:"Hip hinge with bar on back; great posterior chain stretch" },
+      { id:22, name:"Barbell Upright Row",          equipment:"Barbell",                muscles:["Side Delts","Upper Back & Traps"],                       note:"Keep bar close; wide grip is more shoulder-friendly" },
+      { id:23, name:"Dumbbell Press (Flat)",        equipment:"Dumbbells",              muscles:["Mid/Lower Chest","Triceps","Front Delts"],               note:"Greater range of motion than barbell; each side works independently" },
+      { id:24, name:"Dumbbell Incline Press",       equipment:"Dumbbells",              muscles:["Upper Chest","Front Delts","Triceps"],                   note:"Targets upper chest; set bench to 30-45 degrees" },
+      { id:25, name:"Dumbbell Fly (Flat)",          equipment:"Dumbbells",              muscles:["Mid/Lower Chest"],                                       note:"Isolates pecs with a deep stretch at the bottom" },
+      { id:26, name:"Dumbbell Incline Fly",         equipment:"Dumbbells",              muscles:["Upper Chest"],                                           note:"Stretch-focused upper chest isolation" },
+      { id:27, name:"Dumbbell Shoulder Press",      equipment:"Dumbbells",              muscles:["Front Delts","Side Delts","Triceps"],                    note:"Seated or standing; neutral grip reduces shoulder stress" },
+      { id:28, name:"Lateral Raise",                equipment:"Dumbbells",              muscles:["Side Delts"],                                            note:"Light weight, controlled tempo" },
+      { id:29, name:"Front Raise",                  equipment:"Dumbbells",              muscles:["Front Delts"],                                           note:"Targets anterior delt; alternate arms to control load" },
+      { id:30, name:"Bent-Over Rear Delt Fly",      equipment:"Dumbbells",              muscles:["Rear Delts","Upper Back & Traps"],                       note:"Hinge forward; lead with elbows, not hands" },
+      { id:31, name:"Dumbbell Row (Single Arm)",    equipment:"Dumbbells",              muscles:["Lats","Upper Back & Traps","Biceps"],                    note:"Brace on bench; pull elbow to hip for max lat stretch" },
+      { id:32, name:"Dumbbell Curl",                equipment:"Dumbbells",              muscles:["Biceps"],                                                note:"Alternate arms; supinate wrist at top for full contraction" },
+      { id:33, name:"Hammer Curl",                  equipment:"Dumbbells",              muscles:["Biceps"],                                                note:"Neutral grip; hits brachialis and brachioradialis too" },
+      { id:34, name:"Dumbbell Skull Crusher",       equipment:"Dumbbells",              muscles:["Triceps"],                                               note:"Lie flat; lower to temples, extend up" },
+      { id:35, name:"Dumbbell Overhead Tricep Ext.",equipment:"Dumbbells",              muscles:["Triceps"],                                               note:"Long-head stretch; use one heavy dumbbell" },
+      { id:36, name:"Goblet Squat",                 equipment:"Dumbbells",              muscles:["Quads","Glutes","Abs"],                                  note:"Great for squat mechanics; very upright torso" },
+      { id:37, name:"Dumbbell Lunge",               equipment:"Dumbbells",              muscles:["Quads","Glutes","Hamstrings"],                           note:"Walking or reverse; targets each leg independently" },
+      { id:38, name:"Dumbbell Romanian Deadlift",   equipment:"Dumbbells",              muscles:["Hamstrings","Glutes","Lower Back"],                      note:"Hip hinge; feel the hamstring stretch on the way down" },
+      { id:39, name:"Dumbbell Shrug",               equipment:"Dumbbells",              muscles:["Upper Back & Traps"],                                    note:"Trap builder; pause at the top and squeeze" },
+      { id:40, name:"Dumbbell Calf Raise",          equipment:"Dumbbells",              muscles:["Calves"],                                                note:"Use a step for full range; pause at top and bottom" },
+      { id:41, name:"Dumbbell Side Bend",           equipment:"Dumbbells",              muscles:["Obliques"],                                              note:"Hold one DB; controlled lateral flex" },
+      { id:42, name:"Barbell Bench Press",          equipment:"Bench + Barbell",        muscles:["Mid/Lower Chest","Triceps","Front Delts"],               note:"Primary horizontal push; touch chest, full lockout" },
+      { id:43, name:"Incline Barbell Press",        equipment:"Bench + Barbell",        muscles:["Upper Chest","Front Delts","Triceps"],                   note:"Set bench to 30-45 degrees; emphasises upper pec" },
+      { id:44, name:"Hip Thrust (Barbell)",         equipment:"Bench + Barbell",        muscles:["Glutes","Hamstrings"],                                   note:"Back on bench, bar over hips; one of the best glute exercises" },
+      { id:45, name:"Step-Up",                      equipment:"Bench",                  muscles:["Quads","Glutes"],                                        note:"Use bench as platform; add DBs for extra load" },
+      { id:46, name:"Tricep Dip (Bench)",           equipment:"Bench",                  muscles:["Triceps","Mid/Lower Chest"],                             note:"Hands on bench, feet on floor; add weight on lap" },
+      { id:47, name:"Band Pull-Apart",              equipment:"Resistance Bands",       muscles:["Rear Delts","Upper Back & Traps"],                       note:"Scapular retractors; great warmup or high-rep finisher" },
+      { id:48, name:"Band Curl",                    equipment:"Resistance Bands",       muscles:["Biceps"],                                                note:"Stand on band; constant tension throughout" },
+      { id:49, name:"Band Glute Kickback",          equipment:"Resistance Bands",       muscles:["Glutes"],                                                note:"Loop around ankles; isolates glute max" },
+      { id:50, name:"Band Lateral Walk",            equipment:"Resistance Bands",       muscles:["Glutes"],                                                note:"Targets glute medius; great for hip stability" },
+      { id:51, name:"Band Face Pull",               equipment:"Resistance Bands",       muscles:["Rear Delts","Upper Back & Traps"],                       note:"Anchor at head height; great for shoulder health" },
+      { id:52, name:"Band Tricep Pushdown",         equipment:"Resistance Bands",       muscles:["Triceps"],                                               note:"Anchor overhead; same motion as cable version" },
+      { id:53, name:"Band Overhead Press",          equipment:"Resistance Bands",       muscles:["Front Delts","Side Delts","Triceps"],                    note:"Stand on band; good for shoulder endurance work" },
+      { id:54, name:"Band Woodchop",                equipment:"Resistance Bands",       muscles:["Obliques","Abs"],                                        note:"Anchor low or high; rotational core power" },
+      { id:55, name:"Medicine Ball Slam",           equipment:"Medicine Ball",          muscles:["Abs","Front Delts","Upper Back & Traps"],                note:"Explosive; slam from overhead with full body engagement" },
+      { id:56, name:"Rotational Throw",             equipment:"Medicine Ball",          muscles:["Obliques","Front Delts"],                                note:"Stand sideways to a wall; develops rotational power" },
+      { id:57, name:"Med Ball Russian Twist",       equipment:"Medicine Ball",          muscles:["Obliques","Abs"],                                        note:"Seated rotation; controlled tempo" },
+      { id:58, name:"Wall Ball Shot",               equipment:"Medicine Ball",          muscles:["Quads","Front Delts","Abs"],                             note:"Squat to overhead throw; full-body explosive movement" },
+      { id:59, name:"Med Ball Chest Pass",          equipment:"Medicine Ball",          muscles:["Mid/Lower Chest","Triceps","Front Delts"],               note:"Explosive horizontal push; stand facing a wall" },
+      { id:60, name:"Landmine Press",               equipment:"Landmine",               muscles:["Front Delts","Upper Chest","Triceps"],                   note:"Arc path is more shoulder-friendly than vertical press" },
+      { id:61, name:"Landmine Row",                 equipment:"Landmine",               muscles:["Lats","Upper Back & Traps","Biceps"],                    note:"Single or double arm; great for lat engagement" },
+      { id:62, name:"Landmine Squat",               equipment:"Landmine",               muscles:["Quads","Glutes","Abs"],                                  note:"Hold end of bar at chest; very upright torso" },
+      { id:63, name:"Landmine Romanian Deadlift",   equipment:"Landmine",               muscles:["Hamstrings","Glutes","Lower Back"],                      note:"Single-leg variant excellent for balance and isolation" },
+      { id:64, name:"Landmine Rotation",            equipment:"Landmine",               muscles:["Obliques","Front Delts"],                                note:"Pivoting arc; develops rotational core strength" },
+      { id:65, name:"Landmine Lateral Raise",       equipment:"Landmine",               muscles:["Side Delts"],                                            note:"Arc from low to side; unique angle for side delts" },
+      { id:66, name:"Landmine Meadows Row",         equipment:"Landmine",               muscles:["Lats","Upper Back & Traps","Biceps"],                    note:"Staggered stance; allows very heavy unilateral loading" },
+      { id:67, name:"Pull-Up",                      equipment:"Bodyweight",             muscles:["Lats","Upper Back & Traps","Biceps"],                    note:"Overhand grip; add weight via belt or vest to progress" },
+      { id:68, name:"Chin-Up",                      equipment:"Bodyweight",             muscles:["Lats","Biceps"],                                         note:"Underhand grip; more bicep involvement than pull-up" },
+      { id:69, name:"Push-Up",                      equipment:"Bodyweight",             muscles:["Mid/Lower Chest","Triceps","Front Delts"],               note:"Elevate feet for upper chest; add weight vest to progress" },
+      { id:70, name:"Incline Push-Up",              equipment:"Bodyweight",             muscles:["Upper Chest","Triceps","Front Delts"],                   note:"Hands elevated on bench; shifts focus to upper pec" },
+      { id:71, name:"Decline Push-Up",              equipment:"Bodyweight",             muscles:["Mid/Lower Chest","Front Delts","Triceps"],               note:"Feet elevated; hits lower chest and front delts more" },
+      { id:72, name:"Pike Push-Up",                 equipment:"Bodyweight",             muscles:["Front Delts","Side Delts","Triceps"],                    note:"Hips high; mimics the overhead press pattern" },
+      { id:73, name:"Diamond Push-Up",              equipment:"Bodyweight",             muscles:["Triceps","Mid/Lower Chest"],                             note:"Hands close together; very high tricep demand" },
+      { id:74, name:"Dip (Parallel Bars)",          equipment:"Bodyweight",             muscles:["Triceps","Mid/Lower Chest","Front Delts"],               note:"Lean forward for chest; stay upright for triceps" },
+      { id:75, name:"Inverted Row",                 equipment:"Bodyweight",             muscles:["Upper Back & Traps","Lats","Biceps"],                    note:"Use bar in squat rack; feet further out = harder" },
+      { id:76, name:"Bodyweight Squat",             equipment:"Bodyweight",             muscles:["Quads","Glutes"],                                        note:"Drill the pattern; add tempo or pauses for difficulty" },
+      { id:77, name:"Bulgarian Split Squat",        equipment:"Bodyweight",             muscles:["Quads","Glutes","Hamstrings"],                           note:"Rear foot on bench; one of the best unilateral leg exercises" },
+      { id:78, name:"Pistol Squat",                 equipment:"Bodyweight",             muscles:["Quads","Glutes","Abs"],                                  note:"Single-leg squat to the floor; advanced balance and strength" },
+      { id:79, name:"Glute Bridge",                 equipment:"Bodyweight",             muscles:["Glutes","Hamstrings"],                                   note:"Drive hips up; squeeze glutes hard at the top" },
+      { id:80, name:"Single-Leg Glute Bridge",      equipment:"Bodyweight",             muscles:["Glutes","Hamstrings"],                                   note:"Unilateral version; helps identify and fix imbalances" },
+      { id:81, name:"Nordic Curl",                  equipment:"Bodyweight",             muscles:["Hamstrings"],                                            note:"Anchor feet; lower slowly under control" },
+      { id:82, name:"Calf Raise (Bodyweight)",      equipment:"Bodyweight",             muscles:["Calves"],                                                note:"Use a step; single-leg version adds load naturally" },
+      { id:83, name:"Plank",                        equipment:"Bodyweight",             muscles:["Abs","Lower Back"],                                      note:"Hollow body position; squeeze everything" },
+      { id:84, name:"Side Plank",                   equipment:"Bodyweight",             muscles:["Obliques","Abs"],                                        note:"Stack feet or stagger; keep hips high throughout" },
+      { id:85, name:"Hollow Body Hold",             equipment:"Bodyweight",             muscles:["Abs"],                                                   note:"Lower back pressed to floor; very effective core drill" },
+      { id:86, name:"Dead Bug",                     equipment:"Bodyweight",             muscles:["Abs","Lower Back"],                                      note:"Slow, controlled; anti-extension core stability" },
+      { id:87, name:"Hanging Knee / Leg Raise",     equipment:"Bodyweight",             muscles:["Abs","Obliques"],                                        note:"Hang from bar; tuck knees or straight-leg for more difficulty" },
+      { id:88, name:"V-Up",                         equipment:"Bodyweight",             muscles:["Abs"],                                                   note:"Simultaneous upper and lower crunch; high ab demand" },
+      { id:89, name:"Superman Hold",                equipment:"Bodyweight",             muscles:["Lower Back","Glutes"],                                   note:"Prone back extension; accessible lower-back strengthener" },
+      { id:90, name:"Bird Dog",                     equipment:"Bodyweight",             muscles:["Lower Back","Abs","Glutes"],                             note:"Opposite arm and leg; great for spinal stability" },
+      { id:91, name:"Russian Twist (Bodyweight)",   equipment:"Bodyweight",             muscles:["Obliques"],                                              note:"Feet off floor for more demand; rotate from the torso" },
+      { id:92, name:"Wall Handstand Hold",          equipment:"Bodyweight",             muscles:["Front Delts","Side Delts","Triceps","Abs"],              note:"Builds shoulder strength and body awareness" },
+    ];
+
+    // ─── Small components ────────────────────────────────────────────────────────
+
+    function MuscleTag({ muscle }) {
+      const c = muscleColor[muscle] || "#94a3b8";
+      return (
+        <span style={{
+          background: c + "22", color: c, border: "1px solid " + c + "55",
+          borderRadius: "4px", padding: "1px 6px", fontSize: "11px",
+          fontWeight: 600, letterSpacing: "0.03em", whiteSpace: "nowrap",
+        }}>{muscle}</span>
+      );
+    }
+
+    function CardioTag() {
+      return (
+        <span style={{
+          background: "#fbbf2422", color: "#fbbf24", border: "1px solid #fbbf2455",
+          borderRadius: "4px", padding: "1px 6px", fontSize: "11px", fontWeight: 600,
+        }}>Cardio / Warmup</span>
+      );
+    }
+
+    function FilterBar({ filterMuscle, setFilterMuscle, filterEquip, setFilterEquip }) {
+      const equipments       = ["All", ...Array.from(new Set(EXERCISES.map(e => e.equipment))).sort()];
+      const allMuscleOptions = ["All", ...MUSCLE_GROUPS];
+      const sel = { width: "100%", background: "#0f172a", border: "1px solid #1e3a5f", color: "#e2e8f0",
+        borderRadius: "8px", padding: "8px 10px", fontSize: "13px", fontFamily: "'DM Sans',sans-serif" };
+      return (
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e293b", display: "flex", gap: "10px" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "4px" }}>MUSCLE</div>
+            <select value={filterMuscle} onChange={e => setFilterMuscle(e.target.value)} style={sel}>
+              {allMuscleOptions.map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "4px" }}>EQUIPMENT</div>
+            <select value={filterEquip} onChange={e => setFilterEquip(e.target.value)} style={sel}>
+              {equipments.map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+        </div>
+      );
+    }
+
+    function MenuCard({ ex, onAdd, covered, flashing }) {
+      return (
+        <div style={{
+          background: flashing ? "#1e3a5f" : (covered ? "#0a0f18" : "#0f172a"),
+          border: "1px solid " + (flashing ? "#4ade80" : covered ? "#1e293b" : "#1e3a5f"),
+          borderRadius: "10px", padding: "12px 14px", opacity: covered ? 0.4 : 1,
+          transition: "background 0.2s, border-color 0.2s",
+          display: "flex", alignItems: "flex-start", gap: "10px",
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: "14px", color: covered ? "#475569" : "#e2e8f0", marginBottom: "3px" }}>
+              {ex.name}
+            </div>
+            <div style={{ fontSize: "11px", color: "#475569", fontStyle: "italic", marginBottom: "6px" }}>
+              {ex.equipment}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: (!covered && ex.note) ? "6px" : "0" }}>
+              {ex.cardioOnly ? <CardioTag /> : ex.muscles.map(m => <MuscleTag key={m} muscle={m} />)}
+            </div>
+            {!covered && ex.note && (
+              <div style={{ fontSize: "12px", color: "#64748b", lineHeight: 1.4 }}>{ex.note}</div>
+            )}
+          </div>
+          {onAdd && (
+            <button
+              onClick={onAdd}
+              style={{
+                background: flashing ? "#4ade80" : "#1d4ed8", border: "none", borderRadius: "8px",
+                color: flashing ? "#000" : "#fff", fontWeight: 700, fontSize: "20px",
+                width: "40px", height: "40px", flexShrink: 0, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.2s, color 0.2s",
+              }}
+            >{flashing ? "✓" : "+"}</button>
+          )}
+        </div>
+      );
+    }
+
+    function LibraryCard({ ex }) {
+      return (
+        <div style={{ background: "#0f172a", border: "1px solid #1e3a5f", borderRadius: "10px", padding: "13px 14px" }}>
+          <div style={{ fontWeight: 600, fontSize: "14px", color: "#e2e8f0", marginBottom: "3px" }}>{ex.name}</div>
+          <div style={{ fontSize: "11px", color: "#475569", fontStyle: "italic", marginBottom: "7px" }}>{ex.equipment}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "6px" }}>
+            {ex.cardioOnly ? <CardioTag /> : ex.muscles.map(m => <MuscleTag key={m} muscle={m} />)}
+          </div>
+          <div style={{ fontSize: "12px", color: "#64748b", lineHeight: 1.4 }}>{ex.note}</div>
+        </div>
+      );
+    }
+
+    // ─── Tab screens ─────────────────────────────────────────────────────────────
+
+    function LogScreen({ weeks, activeWeekId, activeWorkoutId, setActiveWorkoutId, addWorkout, deleteWorkout, removeExercise, setShowWeekSheet, setTab }) {
+      const activeWeek    = weeks.find(w => w.id === activeWeekId);
+      const activeWorkout = activeWeek && activeWeek.workouts.find(w => w.id === activeWorkoutId);
+
+      return (
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+            <button
+              onClick={() => setShowWeekSheet(true)}
+              style={{
+                flex: 1, background: "#0f172a", border: "1px solid #1e3a5f", borderRadius: "10px",
+                padding: "10px 14px", color: "#e2e8f0", fontWeight: 600, fontSize: "14px",
+                textAlign: "left", cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}
+            >
+              <span>{activeWeek ? activeWeek.label : "No week"}</span>
+              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 400 }}>change</span>
+            </button>
+            <button
+              onClick={addWorkout}
+              style={{
+                background: "#1d4ed8", border: "none", borderRadius: "10px", padding: "10px 14px",
+                color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer",
+                fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap",
+              }}
+            >+ Workout</button>
+          </div>
+
+          {(!activeWeek || activeWeek.workouts.length === 0) && (
+            <div style={{ textAlign: "center", color: "#334155", fontSize: "14px", marginTop: "60px" }}>
+              <div style={{ fontSize: "36px", marginBottom: "12px" }}>🏋️</div>
+              No workouts yet.
+              <br />
+              Tap <strong style={{ color: "#60a5fa" }}>+ Workout</strong> to get started.
+            </div>
+          )}
+
+          {activeWeek && activeWeek.workouts.length > 0 && (
+            <>
+              <div style={{ display: "flex", gap: "8px", overflowX: "auto", marginBottom: "16px", paddingBottom: "4px" }}>
+                {activeWeek.workouts.map(wo => (
+                  <div key={wo.id} style={{
+                    display: "flex", alignItems: "center", flexShrink: 0,
+                    background: activeWorkoutId === wo.id ? "#1e3a5f" : "#0f172a",
+                    border: "1px solid " + (activeWorkoutId === wo.id ? "#3b82f6" : "#1e293b"),
+                    borderRadius: "8px", overflow: "hidden",
+                  }}>
+                    <button
+                      onClick={() => setActiveWorkoutId(wo.id)}
+                      style={{
+                        background: "none", border: "none", padding: "8px 12px",
+                        color: activeWorkoutId === wo.id ? "#60a5fa" : "#94a3b8",
+                        fontWeight: activeWorkoutId === wo.id ? 700 : 400,
+                        fontSize: "13px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                        whiteSpace: "nowrap",
+                      }}
+                    >{wo.label}</button>
+                    <button
+                      onClick={() => deleteWorkout(wo.id)}
+                      style={{
+                        background: "none", border: "none", borderLeft: "1px solid #1e293b",
+                        color: "#475569", cursor: "pointer", padding: "8px 10px", fontSize: "16px", lineHeight: 1,
+                      }}
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+
+              {activeWorkout ? (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", letterSpacing: "0.08em" }}>
+                      {activeWorkout.label.toUpperCase()} — LOG
+                    </div>
+                    <button
+                      onClick={() => setTab("menu")}
+                      style={{
+                        background: "#1d4ed8", border: "none", borderRadius: "8px", padding: "8px 14px",
+                        color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer",
+                        fontFamily: "'DM Sans',sans-serif",
+                      }}
+                    >+ Add Exercise</button>
+                  </div>
+
+                  {activeWorkout.exercises.length === 0 ? (
+                    <div style={{ textAlign: "center", color: "#334155", fontSize: "13px", marginTop: "30px" }}>
+                      Tap <strong style={{ color: "#60a5fa" }}>+ Add Exercise</strong> to build this workout.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {activeWorkout.exercises.map((ex, i) => (
+                        <div key={i} style={{
+                          background: "#0f172a", border: "1px solid #1e3a5f", borderRadius: "10px",
+                          padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                        }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: "14px", color: "#e2e8f0", marginBottom: "5px" }}>{ex.name}</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                              {ex.cardioOnly ? <CardioTag /> : ex.muscles.map(m => <MuscleTag key={m} muscle={m} />)}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeExercise(i)}
+                            style={{
+                              background: "none", border: "none", color: "#475569",
+                              cursor: "pointer", fontSize: "22px", padding: "0 0 0 12px", lineHeight: 1, flexShrink: 0,
+                            }}
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: "center", color: "#334155", fontSize: "13px", marginTop: "20px" }}>
+                  Select a workout above.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    function MenuScreen({ weeks, activeWeekId, activeWorkoutId, addExercise, addedFlash, filterMuscle, setFilterMuscle, filterEquip, setFilterEquip }) {
+      const activeWeek    = weeks.find(w => w.id === activeWeekId);
+      const activeWorkout = activeWeek && activeWeek.workouts.find(w => w.id === activeWorkoutId);
+
+      const weekTargetedMuscles = new Set(
+        (activeWeek ? activeWeek.workouts : []).flatMap(wo => wo.exercises.flatMap(e => e.muscles))
+      );
+
+      function isFullyCovered(ex) {
+        if (ex.cardioOnly || !ex.muscles.length) return false;
+        return ex.muscles.every(m => weekTargetedMuscles.has(m));
+      }
+
+      const filtered = EXERCISES.filter(e =>
+        (filterMuscle === "All" || e.muscles.includes(filterMuscle)) &&
+        (filterEquip  === "All" || e.equipment === filterEquip)
+      );
+      const available = filtered.filter(e => !isFullyCovered(e));
+      const covered   = filtered.filter(e =>  isFullyCovered(e));
+
+      return (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ padding: "10px 16px", background: "#080e1a", borderBottom: "1px solid #1e293b" }}>
+            {activeWorkoutId ? (
+              <div style={{ fontSize: "12px", color: "#60a5fa", fontWeight: 600 }}>
+                Adding to: {activeWeek && activeWeek.label} — {activeWorkout && activeWorkout.label}
+                <span style={{ color: "#64748b", fontWeight: 400 }}> (tap + to add)</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: "12px", color: "#f59e0b", fontWeight: 600 }}>
+                No workout selected — go to Log and select one first
+              </div>
+            )}
+          </div>
+
+          <FilterBar filterMuscle={filterMuscle} setFilterMuscle={setFilterMuscle} filterEquip={filterEquip} setFilterEquip={setFilterEquip} />
+
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+            {activeWorkoutId ? (
+              <>
+                {available.length > 0 && (
+                  <>
+                    <div style={{ fontSize: "11px", color: "#4ade80", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "8px" }}>
+                      AVAILABLE — ADDS NEW COVERAGE
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "20px" }}>
+                      {available.map(ex => (
+                        <MenuCard key={ex.id} ex={ex} onAdd={() => addExercise(ex)} covered={false} flashing={addedFlash === ex.id} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                {covered.length > 0 && (
+                  <>
+                    <div style={{ fontSize: "11px", color: "#475569", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "8px" }}>
+                      ALREADY COVERED THIS WEEK
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {covered.map(ex => (
+                        <MenuCard key={ex.id} ex={ex} onAdd={() => addExercise(ex)} covered={true} flashing={addedFlash === ex.id} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {filtered.map(ex => <MenuCard key={ex.id} ex={ex} onAdd={null} covered={false} flashing={false} />)}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function CoverageScreen({ weeks, activeWeekId }) {
+      const activeWeek = weeks.find(w => w.id === activeWeekId);
+      const weekTargetedMuscles = new Set(
+        (activeWeek ? activeWeek.workouts : []).flatMap(wo => wo.exercises.flatMap(e => e.muscles))
+      );
+      const coveredCount = MUSCLE_GROUPS.filter(m => weekTargetedMuscles.has(m)).length;
+      const progressPct  = Math.round((coveredCount / MUSCLE_GROUPS.length) * 100);
+
+      return (
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <div style={{ fontWeight: 700, fontSize: "16px", color: "#f1f5f9" }}>
+              {activeWeek ? activeWeek.label : "—"} Coverage
+            </div>
+            <div style={{ fontSize: "26px", fontWeight: 700, fontFamily: "'DM Mono',monospace", color: progressPct === 100 ? "#4ade80" : "#60a5fa" }}>
+              {progressPct}%
+            </div>
+          </div>
+          <div style={{ background: "#0f172a", borderRadius: "6px", height: "6px", marginBottom: "20px", overflow: "hidden" }}>
+            <div style={{ width: progressPct + "%", height: "100%", background: progressPct === 100 ? "#4ade80" : "#3b82f6", borderRadius: "6px", transition: "width 0.3s ease" }} />
+          </div>
+          {COVERAGE_SECTIONS.map(sec => (
+            <div key={sec.label} style={{ marginBottom: "16px" }}>
+              <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, letterSpacing: "0.1em", marginBottom: "8px" }}>
+                {sec.label.toUpperCase()}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {sec.muscles.map(m => {
+                  const hit = weekTargetedMuscles.has(m);
+                  const c   = muscleColor[m];
+                  return (
+                    <span key={m} style={{
+                      background: hit ? c + "22" : "#0a0f18",
+                      color: hit ? c : "#334155",
+                      border: "1px solid " + (hit ? c + "55" : "#1e293b"),
+                      borderRadius: "6px", padding: "5px 10px",
+                      fontSize: "12px", fontWeight: 600, transition: "all 0.2s ease",
+                    }}>{hit ? "✓ " : ""}{m}</span>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function LibraryScreen({ filterMuscle, setFilterMuscle, filterEquip, setFilterEquip }) {
+      const filtered = EXERCISES.filter(e =>
+        (filterMuscle === "All" || e.muscles.includes(filterMuscle)) &&
+        (filterEquip  === "All" || e.equipment === filterEquip)
+      );
+      return (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <FilterBar filterMuscle={filterMuscle} setFilterMuscle={setFilterMuscle} filterEquip={filterEquip} setFilterEquip={setFilterEquip} />
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {filtered.map(ex => <LibraryCard key={ex.id} ex={ex} />)}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function WeekSheet({ weeks, activeWeekId, setActiveWeekId, setActiveWorkoutId, addWeek, deleteWeek, onClose }) {
+      return (
+        <div
+          onClick={onClose}
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "#00000088", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#0f172a", borderRadius: "16px 16px 0 0", border: "1px solid #1e293b", padding: "20px 16px 36px", maxHeight: "70vh", overflowY: "auto" }}
+          >
+            <div style={{ width: "40px", height: "4px", background: "#334155", borderRadius: "2px", margin: "0 auto 16px" }} />
+            <div style={{ fontWeight: 700, fontSize: "16px", color: "#f1f5f9", marginBottom: "14px" }}>Select Week</div>
+            {weeks.map(w => (
+              <div key={w.id} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                <button
+                  onClick={() => { setActiveWeekId(w.id); setActiveWorkoutId(null); onClose(); }}
+                  style={{
+                    flex: 1, background: activeWeekId === w.id ? "#1e3a5f" : "#080e1a",
+                    border: "1px solid " + (activeWeekId === w.id ? "#3b82f6" : "#1e293b"),
+                    borderRadius: "10px", padding: "11px 14px",
+                    color: activeWeekId === w.id ? "#60a5fa" : "#94a3b8",
+                    fontWeight: activeWeekId === w.id ? 700 : 400,
+                    fontSize: "14px", textAlign: "left", cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                  }}
+                >{w.label}</button>
+                <button
+                  onClick={() => deleteWeek(w.id)}
+                  style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#64748b", cursor: "pointer", fontSize: "18px", padding: "8px 12px", lineHeight: 1 }}
+                >×</button>
+              </div>
+            ))}
+            <button
+              onClick={addWeek}
+              style={{ width: "100%", marginTop: "10px", background: "none", border: "1px dashed #1e3a5f", borderRadius: "10px", color: "#3b82f6", padding: "11px", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+            >+ New Week</button>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── Root ─────────────────────────────────────────────────────────────────────
+
+    const NAV_TABS = [
+      { id: "log",      label: "Log",      icon: "📋" },
+      { id: "menu",     label: "Add",      icon: "＋" },
+      { id: "coverage", label: "Coverage", icon: "📊" },
+      { id: "library",  label: "Library",  icon: "📚" },
+    ];
+
+    function App() {
+      const [tab, setTab]                         = useState("log");
+      const [weeks, setWeeks]                     = useState([{ id: 1, label: "Week 1", workouts: [] }]);
+      const [activeWeekId, setActiveWeekId]       = useState(1);
+      const [activeWorkoutId, setActiveWorkoutId] = useState(null);
+      const [filterMuscle, setFilterMuscle]       = useState("All");
+      const [filterEquip, setFilterEquip]         = useState("All");
+      const [showWeekSheet, setShowWeekSheet]     = useState(false);
+      const [addedFlash, setAddedFlash]           = useState(null);
+
+      useEffect(() => {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap";
+        document.head.appendChild(link);
+      }, []);
+
+      function addWeek() {
+        const id = Date.now();
+        setWeeks(prev => [...prev, { id, label: "Week " + (prev.length + 1), workouts: [] }]);
+        setActiveWeekId(id);
+        setActiveWorkoutId(null);
+        setShowWeekSheet(false);
+      }
+
+      function deleteWeek(id) {
+        const rest = weeks.filter(w => w.id !== id);
+        setWeeks(rest);
+        if (activeWeekId === id) {
+          setActiveWeekId(rest.length ? rest[rest.length - 1].id : null);
+          setActiveWorkoutId(null);
+        }
+      }
+
+      function addWorkout() {
+        const activeWeek = weeks.find(w => w.id === activeWeekId);
+        if (!activeWeek) return;
+        const id = Date.now();
+        setWeeks(prev => prev.map(w =>
+          w.id === activeWeekId
+            ? { ...w, workouts: [...w.workouts, { id, label: "Workout " + (w.workouts.length + 1), exercises: [] }] }
+            : w
+        ));
+        setActiveWorkoutId(id);
+        setTab("log");
+      }
+
+      function deleteWorkout(id) {
+        setWeeks(prev => prev.map(w =>
+          w.id === activeWeekId ? { ...w, workouts: w.workouts.filter(wo => wo.id !== id) } : w
+        ));
+        if (activeWorkoutId === id) setActiveWorkoutId(null);
+      }
+
+      function addExercise(ex) {
+        if (!activeWorkoutId) return;
+        setWeeks(prev => prev.map(w =>
+          w.id === activeWeekId
+            ? { ...w, workouts: w.workouts.map(wo =>
+                wo.id === activeWorkoutId ? { ...wo, exercises: [...wo.exercises, ex] } : wo
+              )}
+            : w
+        ));
+        setAddedFlash(ex.id);
+        setTimeout(() => setAddedFlash(null), 900);
+      }
+
+      function removeExercise(idx) {
+        setWeeks(prev => prev.map(w =>
+          w.id === activeWeekId
+            ? { ...w, workouts: w.workouts.map(wo =>
+                wo.id === activeWorkoutId
+                  ? { ...wo, exercises: wo.exercises.filter((_, i) => i !== idx) }
+                  : wo
+              )}
+            : w
+        ));
+      }
+
+      return (
+        <div style={{
+          height: "100dvh", background: "#060d18", color: "#e2e8f0",
+          fontFamily: "'DM Sans','Segoe UI',sans-serif",
+          display: "flex", flexDirection: "column",
+          maxWidth: "600px", margin: "0 auto", position: "relative",
+        }}>
+          <style>{`
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            ::-webkit-scrollbar { width: 3px; }
+            ::-webkit-scrollbar-track { background: #0a0f18; }
+            ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
+            button:focus { outline: none; }
+            select:focus { outline: none; }
+          `}</style>
+
+          {/* Header */}
+          <div style={{ padding: "13px 16px 10px", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+            <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+              <rect x="3" y="11" width="22" height="6" rx="3" fill="#3b82f6" />
+              <rect x="0" y="12" width="5" height="4" rx="2" fill="#60a5fa" />
+              <rect x="23" y="12" width="5" height="4" rx="2" fill="#60a5fa" />
+              <rect x="11" y="7" width="6" height="14" rx="2" fill="#1d4ed8" />
+            </svg>
+            <span style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.5px", color: "#f1f5f9" }}>IRON LOG</span>
+          </div>
+
+          {/* Screen content */}
+          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            {tab === "log" && (
+              <LogScreen
+                weeks={weeks} activeWeekId={activeWeekId} activeWorkoutId={activeWorkoutId}
+                setActiveWorkoutId={setActiveWorkoutId} addWorkout={addWorkout}
+                deleteWorkout={deleteWorkout} removeExercise={removeExercise}
+                setShowWeekSheet={setShowWeekSheet} setTab={setTab}
+              />
+            )}
+            {tab === "menu" && (
+              <MenuScreen
+                weeks={weeks} activeWeekId={activeWeekId} activeWorkoutId={activeWorkoutId}
+                addExercise={addExercise} addedFlash={addedFlash}
+                filterMuscle={filterMuscle} setFilterMuscle={setFilterMuscle}
+                filterEquip={filterEquip} setFilterEquip={setFilterEquip}
+              />
+            )}
+            {tab === "coverage" && (
+              <CoverageScreen weeks={weeks} activeWeekId={activeWeekId} />
+            )}
+            {tab === "library" && (
+              <LibraryScreen
+                filterMuscle={filterMuscle} setFilterMuscle={setFilterMuscle}
+                filterEquip={filterEquip} setFilterEquip={setFilterEquip}
+              />
+            )}
+          </div>
+
+          {/* Bottom nav */}
+          <div style={{ borderTop: "1px solid #1e293b", background: "#080e1a", display: "flex", flexShrink: 0 }}>
+            {NAV_TABS.map(n => (
+              <button
+                key={n.id}
+                onClick={() => setTab(n.id)}
+                style={{
+                  flex: 1, background: "none", border: "none",
+                  borderTop: "2px solid " + (tab === n.id ? "#3b82f6" : "transparent"),
+                  padding: "10px 4px 12px",
+                  color: tab === n.id ? "#60a5fa" : "#475569",
+                  cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                  transition: "color 0.15s",
+                }}
+              >
+                <div style={{ fontSize: "18px", marginBottom: "2px" }}>{n.icon}</div>
+                <div style={{ fontSize: "10px", fontWeight: 600, letterSpacing: "0.05em" }}>{n.label.toUpperCase()}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Week sheet modal */}
+          {showWeekSheet && (
+            <WeekSheet
+              weeks={weeks} activeWeekId={activeWeekId}
+              setActiveWeekId={setActiveWeekId} setActiveWorkoutId={setActiveWorkoutId}
+              addWeek={addWeek} deleteWeek={deleteWeek}
+              onClose={() => setShowWeekSheet(false)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+  <script>
+    // Register service worker for offline support
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registered, scope:', reg.scope))
+          .catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
