@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#060d18" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Iron Log" />
-  <title>Iron Log</title>
+  <meta name="apple-mobile-web-app-title" content="Workout Tracker" />
+  <title>Workout Tracker</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -247,7 +247,7 @@
 
     // ─── Tab screens ─────────────────────────────────────────────────────────────
 
-    function LogScreen({ weeks, activeWeekId, activeWorkoutId, setActiveWorkoutId, addWorkout, deleteWorkout, removeExercise, setShowWeekSheet, setTab }) {
+    function LogScreen({ weeks, activeWeekId, activeWorkoutId, setActiveWorkoutId, addWorkout, deleteWorkout, removeExercise, setShowWeekSheet, setTab, setShowSaveSheet, setShowLoadSheet }) {
       const activeWeek    = weeks.find(w => w.id === activeWeekId);
       const activeWorkout = activeWeek && activeWeek.workouts.find(w => w.id === activeWorkoutId);
 
@@ -319,17 +319,40 @@
               {activeWorkout ? (
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", letterSpacing: "0.08em" }}>
-                      {activeWorkout.label.toUpperCase()} — LOG
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", letterSpacing: "0.08em" }}>
+                        {activeWorkout.label.toUpperCase()} — LOG
+                      </div>
+                      {activeWorkout.exercises.length > 0 && (
+                        <button
+                          onClick={() => setShowSaveSheet(true)}
+                          title="Save as template"
+                          style={{
+                            background: "none", border: "1px solid #1e3a5f", borderRadius: "6px",
+                            color: "#60a5fa", fontSize: "12px", fontWeight: 600,
+                            padding: "3px 8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                          }}
+                        >💾 Save</button>
+                      )}
                     </div>
-                    <button
-                      onClick={() => setTab("menu")}
-                      style={{
-                        background: "#1d4ed8", border: "none", borderRadius: "8px", padding: "8px 14px",
-                        color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer",
-                        fontFamily: "'DM Sans',sans-serif",
-                      }}
-                    >+ Add Exercise</button>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button
+                        onClick={() => setShowLoadSheet(true)}
+                        style={{
+                          background: "none", border: "1px solid #1e3a5f", borderRadius: "8px", padding: "8px 12px",
+                          color: "#60a5fa", fontWeight: 600, fontSize: "13px", cursor: "pointer",
+                          fontFamily: "'DM Sans',sans-serif",
+                        }}
+                      >Templates</button>
+                      <button
+                        onClick={() => setTab("menu")}
+                        style={{
+                          background: "#1d4ed8", border: "none", borderRadius: "8px", padding: "8px 14px",
+                          color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer",
+                          fontFamily: "'DM Sans',sans-serif",
+                        }}
+                      >+ Add Exercise</button>
+                    </div>
                   </div>
 
                   {activeWorkout.exercises.length === 0 ? (
@@ -447,13 +470,22 @@
       );
     }
 
-    function CoverageScreen({ weeks, activeWeekId }) {
+    function CoverageScreen({ weeks, activeWeekId, setFilterMuscle, setTab }) {
       const activeWeek = weeks.find(w => w.id === activeWeekId);
       const weekTargetedMuscles = new Set(
         (activeWeek ? activeWeek.workouts : []).flatMap(wo => wo.exercises.flatMap(e => e.muscles))
       );
+      const weekCardioNames = new Set(
+        (activeWeek ? activeWeek.workouts : []).flatMap(wo => wo.exercises.filter(e => e.cardioOnly).map(e => e.name))
+      );
+      const cardioExercises = EXERCISES.filter(e => e.cardioOnly);
       const coveredCount = MUSCLE_GROUPS.filter(m => weekTargetedMuscles.has(m)).length;
       const progressPct  = Math.round((coveredCount / MUSCLE_GROUPS.length) * 100);
+
+      function goToAddWithMuscle(muscle) {
+        setFilterMuscle(muscle);
+        setTab("menu");
+      }
 
       return (
         <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
@@ -468,6 +500,8 @@
           <div style={{ background: "#0f172a", borderRadius: "6px", height: "6px", marginBottom: "20px", overflow: "hidden" }}>
             <div style={{ width: progressPct + "%", height: "100%", background: progressPct === 100 ? "#4ade80" : "#3b82f6", borderRadius: "6px", transition: "width 0.3s ease" }} />
           </div>
+
+          {/* Muscle group sections */}
           {COVERAGE_SECTIONS.map(sec => (
             <div key={sec.label} style={{ marginBottom: "16px" }}>
               <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, letterSpacing: "0.1em", marginBottom: "8px" }}>
@@ -478,18 +512,45 @@
                   const hit = weekTargetedMuscles.has(m);
                   const c   = muscleColor[m];
                   return (
-                    <span key={m} style={{
-                      background: hit ? c + "22" : "#0a0f18",
-                      color: hit ? c : "#334155",
-                      border: "1px solid " + (hit ? c + "55" : "#1e293b"),
-                      borderRadius: "6px", padding: "5px 10px",
-                      fontSize: "12px", fontWeight: 600, transition: "all 0.2s ease",
-                    }}>{hit ? "✓ " : ""}{m}</span>
+                    <button
+                      key={m}
+                      onClick={() => goToAddWithMuscle(m)}
+                      title={`Find ${m} exercises`}
+                      style={{
+                        background: hit ? c + "22" : "#0a0f18",
+                        color: hit ? c : "#334155",
+                        border: "1px solid " + (hit ? c + "55" : "#1e293b"),
+                        borderRadius: "6px", padding: "5px 10px",
+                        fontSize: "12px", fontWeight: 600, transition: "all 0.2s ease",
+                        cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                      }}
+                    >{hit ? "✓ " : ""}{m}</button>
                   );
                 })}
               </div>
             </div>
           ))}
+
+          {/* Cardio section */}
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, letterSpacing: "0.1em", marginBottom: "8px" }}>
+              CARDIO
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              {cardioExercises.map(ex => {
+                const done = weekCardioNames.has(ex.name);
+                return (
+                  <span key={ex.id} style={{
+                    background: done ? "#fbbf2422" : "#0a0f18",
+                    color: done ? "#fbbf24" : "#334155",
+                    border: "1px solid " + (done ? "#fbbf2455" : "#1e293b"),
+                    borderRadius: "6px", padding: "5px 10px",
+                    fontSize: "12px", fontWeight: 600, transition: "all 0.2s ease",
+                  }}>{done ? "✓ " : ""}{ex.name}</span>
+                );
+              })}
+            </div>
+          </div>
         </div>
       );
     }
@@ -506,6 +567,79 @@
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               {filtered.map(ex => <LibraryCard key={ex.id} ex={ex} />)}
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    function SaveWorkoutSheet({ onSave, onClose }) {
+      const [name, setName] = React.useState("");
+      return (
+        <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "#00000088", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#0f172a", borderRadius: "16px 16px 0 0", border: "1px solid #1e293b", padding: "20px 16px 36px" }}>
+            <div style={{ width: "40px", height: "4px", background: "#334155", borderRadius: "2px", margin: "0 auto 16px" }} />
+            <div style={{ fontWeight: 700, fontSize: "16px", color: "#f1f5f9", marginBottom: "14px" }}>Save as Template</div>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && name.trim() && onSave(name)}
+              placeholder="Template name (e.g. Push Day, Leg Day…)"
+              autoFocus
+              style={{
+                width: "100%", background: "#080e1a", border: "1px solid #1e3a5f",
+                borderRadius: "10px", color: "#e2e8f0", padding: "11px 14px",
+                fontSize: "14px", fontFamily: "'DM Sans',sans-serif", marginBottom: "12px",
+              }}
+            />
+            <button
+              onClick={() => name.trim() && onSave(name)}
+              style={{
+                width: "100%", background: name.trim() ? "#1d4ed8" : "#1e293b",
+                border: "none", borderRadius: "10px",
+                color: name.trim() ? "#fff" : "#475569",
+                padding: "12px", fontSize: "14px", fontWeight: 700,
+                cursor: name.trim() ? "pointer" : "default",
+                fontFamily: "'DM Sans',sans-serif",
+              }}
+            >Save Template</button>
+          </div>
+        </div>
+      );
+    }
+
+    function LoadWorkoutSheet({ savedWorkouts, onLoad, onDelete, onClose }) {
+      return (
+        <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "#00000088", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#0f172a", borderRadius: "16px 16px 0 0", border: "1px solid #1e293b", padding: "20px 16px 36px", maxHeight: "70vh", overflowY: "auto" }}>
+            <div style={{ width: "40px", height: "4px", background: "#334155", borderRadius: "2px", margin: "0 auto 16px" }} />
+            <div style={{ fontWeight: 700, fontSize: "16px", color: "#f1f5f9", marginBottom: "14px" }}>Load Template</div>
+            {savedWorkouts.length === 0 ? (
+              <div style={{ textAlign: "center", color: "#334155", fontSize: "13px", padding: "20px 0" }}>
+                No saved templates yet.<br />
+                <span style={{ color: "#475569" }}>Build a workout and save it as a template first.</span>
+              </div>
+            ) : savedWorkouts.map(t => (
+              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                <button
+                  onClick={() => onLoad(t)}
+                  style={{
+                    flex: 1, background: "#080e1a", border: "1px solid #1e3a5f",
+                    borderRadius: "10px", padding: "11px 14px",
+                    color: "#e2e8f0", fontSize: "14px", textAlign: "left",
+                    cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{t.name}</div>
+                  <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px" }}>
+                    {t.exercises.length} exercise{t.exercises.length !== 1 ? "s" : ""}
+                  </div>
+                </button>
+                <button
+                  onClick={() => onDelete(t.id)}
+                  style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#64748b", cursor: "pointer", fontSize: "18px", padding: "8px 12px", lineHeight: 1 }}
+                >×</button>
+              </div>
+            ))}
           </div>
         </div>
       );
@@ -574,7 +708,13 @@
       const [filterMuscle, setFilterMuscle]       = useState("All");
       const [filterEquip, setFilterEquip]         = useState("All");
       const [showWeekSheet, setShowWeekSheet]     = useState(false);
+      const [showSaveSheet, setShowSaveSheet]     = useState(false);
+      const [showLoadSheet, setShowLoadSheet]     = useState(false);
       const [addedFlash, setAddedFlash]           = useState(null);
+      const [savedWorkouts, setSavedWorkouts]     = useState(() => {
+        try { const s = localStorage.getItem('wt-savedWorkouts'); return s ? JSON.parse(s) : []; }
+        catch { return []; }
+      });
 
       useEffect(() => {
         const link = document.createElement("link");
@@ -585,6 +725,7 @@
 
       useEffect(() => { try { localStorage.setItem('ironlog-weeks', JSON.stringify(weeks)); } catch {} }, [weeks]);
       useEffect(() => { try { localStorage.setItem('ironlog-activeWeekId', JSON.stringify(activeWeekId)); } catch {} }, [activeWeekId]);
+      useEffect(() => { try { localStorage.setItem('wt-savedWorkouts', JSON.stringify(savedWorkouts)); } catch {} }, [savedWorkouts]);
 
       function addWeek() {
         const id = Date.now();
@@ -648,6 +789,32 @@
         ));
       }
 
+      function saveWorkoutAsTemplate(name) {
+        const activeWeek = weeks.find(w => w.id === activeWeekId);
+        const activeWorkout = activeWeek && activeWeek.workouts.find(w => w.id === activeWorkoutId);
+        if (!activeWorkout || !name.trim()) return;
+        setSavedWorkouts(prev => [...prev, { id: Date.now(), name: name.trim(), exercises: activeWorkout.exercises }]);
+        setShowSaveSheet(false);
+      }
+
+      function loadTemplate(template) {
+        if (!activeWorkoutId) return;
+        setWeeks(prev => prev.map(w =>
+          w.id === activeWeekId
+            ? { ...w, workouts: w.workouts.map(wo =>
+                wo.id === activeWorkoutId
+                  ? { ...wo, exercises: [...wo.exercises, ...template.exercises] }
+                  : wo
+              )}
+            : w
+        ));
+        setShowLoadSheet(false);
+      }
+
+      function deleteSavedWorkout(id) {
+        setSavedWorkouts(prev => prev.filter(t => t.id !== id));
+      }
+
       return (
         <div style={{
           height: "100dvh", background: "#060d18", color: "#e2e8f0",
@@ -672,7 +839,7 @@
               <rect x="23" y="12" width="5" height="4" rx="2" fill="#60a5fa" />
               <rect x="11" y="7" width="6" height="14" rx="2" fill="#1d4ed8" />
             </svg>
-            <span style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.5px", color: "#f1f5f9" }}>IRON LOG</span>
+            <span style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.5px", color: "#f1f5f9" }}>WORKOUT TRACKER</span>
           </div>
 
           {/* Screen content */}
@@ -683,6 +850,7 @@
                 setActiveWorkoutId={setActiveWorkoutId} addWorkout={addWorkout}
                 deleteWorkout={deleteWorkout} removeExercise={removeExercise}
                 setShowWeekSheet={setShowWeekSheet} setTab={setTab}
+                setShowSaveSheet={setShowSaveSheet} setShowLoadSheet={setShowLoadSheet}
               />
             )}
             {tab === "menu" && (
@@ -694,7 +862,7 @@
               />
             )}
             {tab === "coverage" && (
-              <CoverageScreen weeks={weeks} activeWeekId={activeWeekId} />
+              <CoverageScreen weeks={weeks} activeWeekId={activeWeekId} setFilterMuscle={setFilterMuscle} setTab={setTab} />
             )}
             {tab === "library" && (
               <LibraryScreen
@@ -732,6 +900,24 @@
               setActiveWeekId={setActiveWeekId} setActiveWorkoutId={setActiveWorkoutId}
               addWeek={addWeek} deleteWeek={deleteWeek}
               onClose={() => setShowWeekSheet(false)}
+            />
+          )}
+
+          {/* Save workout template modal */}
+          {showSaveSheet && (
+            <SaveWorkoutSheet
+              onSave={saveWorkoutAsTemplate}
+              onClose={() => setShowSaveSheet(false)}
+            />
+          )}
+
+          {/* Load workout template modal */}
+          {showLoadSheet && (
+            <LoadWorkoutSheet
+              savedWorkouts={savedWorkouts}
+              onLoad={loadTemplate}
+              onDelete={deleteSavedWorkout}
+              onClose={() => setShowLoadSheet(false)}
             />
           )}
         </div>

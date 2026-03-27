@@ -1,6 +1,6 @@
 {
-  "name": "Iron Log",
-  "short_name": "Iron Log",
+  "name": "Workout Tracker",
+  "short_name": "Workout Tracker",
   "description": "Workout tracker with muscle group coverage",
   "start_url": "./workout-tracker.html",
   "scope": "./",
